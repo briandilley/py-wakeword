@@ -5,8 +5,17 @@ from os.path import isdir, join, abspath, exists
 import librosa
 import random
 import numpy as np
-import matplotlib.pyplot as plt
+from tensorflow import lite
+from tensorflow.keras import layers, models
 import python_speech_features
+import matplotlib.pyplot as plt
+
+
+# SET THE WAKE WORD HERE
+wake_word = 'igor'
+model_filename = 'wake_word_stop_model.h5'
+feature_sets_file = 'all_targets_mfcc_sets.npz'
+tflite_filename = 'wake_word_stop_lite.tflite'
 
 
 # Dataset path and view possible targets
@@ -30,7 +39,6 @@ print("\nTotal samples:", num_samples)
 
 # Settings
 target_list = all_targets
-feature_sets_file = 'all_targets_mfcc_sets.npz'
 perc_keep_samples = 1.0 # 1.0 is keep all samples
 val_ratio = 0.1
 test_ratio = 0.1
@@ -175,3 +183,130 @@ np.savez(feature_sets_file,
 # TEST: Load features
 feature_sets = np.load(feature_sets_file)
 print(f"feature_sets.files: {feature_sets.files}, len(feature_sets['x_train']): {len(feature_sets['x_train'])}, feature_sets['y_val']: {feature_sets['y_val']}")
+
+
+# Settings
+feature_sets = np.load(abspath(feature_sets_file))
+
+
+# Assign feature sets
+x_train = feature_sets['x_train']
+y_train = feature_sets['y_train']
+x_val = feature_sets['x_val']
+y_val = feature_sets['y_val']
+x_test = feature_sets['x_test']
+y_test = feature_sets['y_test']
+
+
+# Convert ground truth arrays to one wake word (1) and 'other' (0)
+wake_word_index = all_targets.index(wake_word)
+y_train = np.equal(y_train, wake_word_index).astype('float64')
+y_val = np.equal(y_val, wake_word_index).astype('float64')
+y_test = np.equal(y_test, wake_word_index).astype('float64')
+
+
+# CNN for TF expects (batch, height, width, channels)
+# So we reshape the input tensors with a "color" channel of 1
+x_train = x_train.reshape(x_train.shape[0],
+                          x_train.shape[1],
+                          x_train.shape[2],
+                          1)
+x_val = x_val.reshape(x_val.shape[0],
+                      x_val.shape[1],
+                      x_val.shape[2],
+                      1)
+x_test = x_test.reshape(x_test.shape[0],
+                        x_test.shape[1],
+                        x_test.shape[2],
+                        1)
+
+
+# Input shape for CNN is size of MFCC of 1 sample
+sample_shape = x_test.shape[1:]
+
+
+# Build model
+# Based on: https://www.geeksforgeeks.org/python-image-classification-using-keras/
+model = models.Sequential()
+model.add(layers.Conv2D(32,
+                        (2, 2),
+                        activation='relu',
+                        input_shape=sample_shape))
+model.add(layers.MaxPooling2D(pool_size=(2, 2)))
+
+model.add(layers.Conv2D(32, (2, 2), activation='relu'))
+model.add(layers.MaxPooling2D(pool_size=(2, 2)))
+
+model.add(layers.Conv2D(64, (2, 2), activation='relu'))
+model.add(layers.MaxPooling2D(pool_size=(2, 2)))
+
+# Classifier
+model.add(layers.Flatten())
+model.add(layers.Dense(64, activation='relu'))
+model.add(layers.Dropout(0.5))
+model.add(layers.Dense(1, activation='sigmoid'))
+
+
+# Display model
+model.summary()
+
+
+# Add training parameters to model
+model.compile(loss='binary_crossentropy',
+              optimizer='rmsprop',
+              metrics=['acc'])
+
+
+# Train
+history = model.fit(x_train,
+                    y_train,
+                    epochs=30,
+                    batch_size=100,
+                    validation_data=(x_val, y_val))
+
+
+# Plot results
+acc = history.history['acc']
+val_acc = history.history['val_acc']
+loss = history.history['loss']
+val_loss = history.history['val_loss']
+
+epochs = range(1, len(acc) + 1)
+
+plt.plot(epochs, acc, 'bo', label='Training acc')
+plt.plot(epochs, val_acc, 'b', label='Validation acc')
+plt.title('Training and validation accuracy')
+plt.legend()
+
+plt.figure()
+
+plt.plot(epochs, loss, 'bo', label='Training loss')
+plt.plot(epochs, val_loss, 'b', label='Validation loss')
+plt.title('Training and validation loss')
+plt.legend()
+
+plt.show()
+
+
+# Save the model as a file
+models.save_model(model, model_filename)
+
+
+# TEST: Load model and run it against test set
+model = models.load_model(model_filename)
+for i in range(100, 110):
+    print('Answer:', y_test[i], ' Prediction:', model.predict(np.expand_dims(x_test[i], 0)))
+
+
+# Evaluate model with test set
+model.evaluate(x=x_test, y=y_test)
+
+
+# Convert model to TF Lite model
+converter = lite.TFLiteConverter.from_keras_model(model)
+tflite_model = converter.convert()
+open(tflite_filename, 'wb').write(tflite_model)
+print(f"Saved tflite filename to: {tflite_filename}")
+
+
+print("All done")
