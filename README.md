@@ -4,7 +4,7 @@ Wakeword detection with TensorFlow
 ## env setup:
 - ./venv.sh
 - ./install-deps.sh
-- ./download-datasets.sh
+- ./prepare-datasets.sh
 
 ## recording new shit
 
