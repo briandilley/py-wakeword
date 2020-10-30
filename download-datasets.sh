@@ -1,6 +1,6 @@
 #!/bin/sh
 
-mkdir -p data/speech_commands
+mkdir -p data/{speech_commands, temp}
 
 if [ ! -e data/speech_commands/speech_commands_v0.02.tar.gz ]
 then
