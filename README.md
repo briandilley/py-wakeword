@@ -6,10 +6,17 @@ Wakeword detection with TensorFlow
 - ./install-deps.sh
 - ./prepare-datasets.sh
 
+## training
+- open train.py and set the appropriate `wake_word` at the top
+- run train.py
+- wait forever
+
 ## recording new shit
 
 using the record script
 `> python record.py --interactive --interactive_save_path ./data/temp --sample_rate 16000 --seconds 1`
+
+## cleaning up existing audio files
 
 cleaning up audio files
 `> ffmpeg -i file.audio -ar 16000 -t 00:00:01 file.audio.wav`
