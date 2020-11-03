@@ -16,6 +16,9 @@ Wakeword detection with TensorFlow
 using the record script
 `> python record.py --interactive --interactive_save_path ./data/temp --sample_rate 16000 --seconds 1`
 
+using the record script in guided mode
+> python record.py --guided --save_path ./data/temp --sample_rate 16000 --seconds 1 --recordings 50 --guided_pause 1
+
 ## cleaning up existing audio files
 
 cleaning up audio files
