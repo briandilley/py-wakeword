@@ -48,6 +48,32 @@ class Listener:
         wf.close()
 
 
+def guided(args):
+    index = 0
+    try:
+        print('Entering guided mode. the recoding will be {} seconds, and there will be {} recordings'.format(args.seconds, args.recordings))
+        while index < args.recordings:
+            listener = Listener(args)
+            frames = []
+            for i in range(args.guided_pause):
+                print(f'{i + 1}, ', end='', flush=True)
+                time.sleep(1)
+            print('go! [', end='', flush=True)
+            time.sleep(0.3)
+            for i in range(int((listener.sample_rate/listener.chunk) * listener.record_seconds)):
+                print('.', end='', flush=True)
+                data = listener.stream.read(listener.chunk, exception_on_overflow = False)
+                frames.append(data)
+            save_path = os.path.join(args.save_path, "{}.wav".format(index))
+            index += 1
+            print('] ', end='', flush=True)
+            listener.save_audio(save_path, frames)
+    except KeyboardInterrupt:
+        print('Keyboard Interrupt')
+    except Exception as e:
+        print(str(e))
+
+
 def interactive(args):
     index = 0
     try:
@@ -61,7 +87,7 @@ def interactive(args):
             for i in range(int((listener.sample_rate/listener.chunk) * listener.record_seconds)):
                 data = listener.stream.read(listener.chunk, exception_on_overflow = False)
                 frames.append(data)
-            save_path = os.path.join(args.interactive_save_path, "{}.wav".format(index))
+            save_path = os.path.join(args.save_path, "{}.wav".format(index))
             listener.save_audio(save_path, frames)
             index += 1
     except KeyboardInterrupt:
@@ -107,16 +133,26 @@ if __name__ == "__main__":
     parser.add_argument('--seconds', type=int, default=None,
                         help='if set to None, then will record forever until keyboard interrupt')
     parser.add_argument('--save_path', type=str, default=None, required=False,
-                        help='full path to save file. i.e. /to/path/sound.wav')
-    parser.add_argument('--interactive_save_path', type=str, default=None, required=False,
-                        help='directory to save all the interactive 2 second samples. i.e. /to/path/')
+                        help='path to save samples (directory for interactive or guided, else filename)')
     parser.add_argument('--interactive', default=False, action='store_true', required=False,
                         help='sets to interactive mode')
+    parser.add_argument('--recordings', type=int, default=None, required=False,
+                        help='number of recordings to record')
+    parser.add_argument('--guided', default=False, action='store_true', required=False,
+                        help='sets to guided mode')
+    parser.add_argument('--guided_pause', default=3, type=int,
+                        help='seconds to pause in between recordings for the guided mode')
     args = parser.parse_args()
     if args.interactive:
-        if args.interactive_save_path is None:
-            raise Exception('need to set --interactive_save_path')
+        if args.save_path is None:
+            raise Exception('need to set --save_path')
         interactive(args)
+    elif args.guided:
+        if args.save_path is None:
+            raise Exception('need to set --save_path')
+        if args.recordings is None:
+            raise Exception('need to set --recordings')
+        guided(args)
     else:
         if args.save_path is None:
             raise Exception('need to set --save_path')
