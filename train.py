@@ -26,15 +26,25 @@ if not exists(dataset_path):
 
 # Create an all targets list
 print("\nFollows is a list of training words found:")
-all_targets = [name for name in listdir(dataset_path) if isdir(join(dataset_path, name)) and "background_noise" not in name]
-print(all_targets)
+all_targets = sorted([name for name in listdir(dataset_path) if isdir(join(dataset_path, name)) and "background_noise" not in name])
+if wake_word not in all_targets:
+    print("Wake word not found in dataset")
+    exit(187)
 
 
 # See how many files are in each
 num_samples = 0
 for target in all_targets:
-    num_samples += len(listdir(join(dataset_path, target)))
-print("\nTotal samples:", num_samples)
+    n = len(listdir(join(dataset_path, target)))
+    print(f"Samples for {target}: {n}")
+    num_samples += n
+    if target == wake_word:
+        if n <= 0:
+            print("No sounds found for wake word")
+            exit(187)
+        for file in listdir(join(dataset_path, target)):
+            print(f"\t - {file}")
+print("Total samples:", num_samples)
 
 
 # Settings
